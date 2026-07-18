@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RepoPulse AI Dashboard</title>
-    <!-- Tailwind CSS for clean design -->
+    <!-- Tailwind Engine -->
     <script src="https://jsdelivr.net"></script>
     <!-- Supabase CDN Client -->
     <script src="https://jsdelivr.net"></script>
@@ -15,20 +15,88 @@
         <h1 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 mb-2">RepoPulse AI</h1>
         <p class="text-slate-400 mb-6 text-sm">Automated daily summary of your team's code progress via GitHub & Claude AI.</p>
 
-        <!-- Dynamic Content Box -->
-        <div id="app-state" class="space-y-4">
-            <p class="text-amber-400 font-medium">Connecting to system keys...</p>
+        <!-- Authentication Panel -->
+        <div id="auth-box" class="space-y-4">
+            <input id="email" type="email" placeholder="Enter your email" class="w-full p-3 rounded-xl bg-slate-700 border border-slate-600 focus:outline-none focus:border-blue-500 text-slate-100">
+            <button onclick="login()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl transition cursor-pointer">Get Magic Login Link</button>
+        </div>
+
+        <!-- Dashboard View (Hidden by default) -->
+        <div id="dashboard-box" class="hidden space-y-4 text-left">
+            <div class="p-4 bg-slate-700/50 rounded-xl border border-slate-600">
+                <p class="text-sm text-slate-400">Account status:</p>
+                <p id="sub-status" class="font-bold text-amber-400">Checking subscription...</p>
+            </div>
+            
+            <div id="pay-section" class="hidden text-center p-4 bg-slate-900/50 border border-slate-700 rounded-xl">
+                <p class="text-xs text-slate-400 mb-3">Pay $10 in crypto for 30 days of automated Claude executive insights.</p>
+                <button onclick="paySubscription()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-xl transition cursor-pointer">
+                    Pay with Crypto (SideShift)
+                </button>
+            </div>
+            <button onclick="logout()" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium py-2 px-4 rounded-xl text-xs transition mt-4">Sign Out</button>
         </div>
     </div>
 
     <script>
-        // System variables placeholder (We will hook this up in Step 4)
-        console.log("RepoPulse application interface initialized successfully.");
-        document.getElementById('app-state').innerHTML = `
-            <button class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl transition cursor-pointer">
-                Subscribe for $10/mo via Crypto
-            </button>
-        `;
+        // Configured directly with your live project ID parameters
+        const supabaseUrl = "https://supabase.co";
+        const supabaseKey = "sb_publishable_baIXjcNJZHen1C9WSY98g_srSAoO00000000000000000000000000000"; // <--- SELECT AND PASTE YOUR ACTUAL KEY COPIED IN STEP 14 OVER THIS PLACEHOLDER
+        
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+        // Track active application session instances
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+            if (session) {
+                document.getElementById('auth-box').classList.add('hidden');
+                document.getElementById('dashboard-box').classList.remove('hidden');
+                checkSubscription(session.user);
+            } else {
+                document.getElementById('auth-box').classList.remove('hidden');
+                document.getElementById('dashboard-box').classList.add('hidden');
+            }
+        });
+
+        // Trigger passwordless email signup process
+        async function login() {
+            const email = document.getElementById('email').value;
+            if(!email) return alert('Please enter your email address first.');
+            const { error } = await supabaseClient.auth.signInWithOtp({ 
+                email,
+                options: { emailRedirectTo: window.location.href }
+            });
+            if (error) alert(error.message);
+            else alert('Check your inbox! We sent you a secure magic login link.');
+        }
+
+        // Query status directly from user profile tables
+        async function checkSubscription(user) {
+            const { data, error } = await supabaseClient.from('profiles').select('subscription_expires_at').eq('id', user.id).single();
+            if (data) {
+                const expiry = new Date(data.subscription_expires_at);
+                if (expiry > new Date()) {
+                    document.getElementById('sub-status').className = "font-bold text-emerald-400";
+                    document.getElementById('sub-status').innerText = `Active (Expires: ${expiry.toLocaleDateString()})`;
+                    document.getElementById('pay-section').classList.add('hidden');
+                } else {
+                    document.getElementById('sub-status').className = "font-bold text-rose-400";
+                    document.getElementById('sub-status').innerText = "Subscription Inactive";
+                    document.getElementById('pay-section').classList.remove('hidden');
+                }
+            } else {
+                document.getElementById('sub-status').innerText = "No profile record found.";
+                document.getElementById('pay-section').classList.remove('hidden');
+            }
+        }
+
+        // Open SideShift interface passing through required metadata attributes 
+        function paySubscription() {
+            window.open('https://sideshift.ai', '_blank');
+        }
+
+        async function logout() {
+            await supabaseClient.auth.signOut();
+        }
     </script>
 </body>
 </html>
